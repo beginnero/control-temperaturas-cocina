@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Temperaturas - Cocina</title>
+  <!-- Tailwind CSS para diseño móvil moderno -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Estilos específicos para la generación del reporte en PDF */
+    @media print {
+      body {
+        background-color: white !important;
+        color: black !important;
+        font-size: 10px !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-area {
+        display: block !important;
+        width: 100% !important;
+      }
+      table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+      }
+      th, td {
+        border: 1px solid #000 !important;
+        padding: 4px !important;
+        text-align: center !important;
+      }
+      @page {
+        size: landscape;
+        margin: 1cm;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen pb-16">
+
+  <!-- Menú Superior Rediseñado para Móvil -->
+  <header class="bg-blue-600 text-white shadow-md no-print sticky top-0 z-10">
+    <div class="max-w-md mx-auto p-4 flex flex-col gap-3">
+      <div class="flex justify-between items-center">
+        <h1 class="font-bold text-xl">❄️ Control Frío Cocina</h1>
+        <span class="text-xs bg-blue-500 px-2 py-0.5 rounded font-semibold">APPCC</span>
+      </div>
+      <!-- Botones de Navegación tipo Pestañas -->
+      <div class="grid grid-cols-3 gap-1 bg-blue-700 p-1 rounded-lg">
+        <button id="btn-registro" onclick="cambiarVista('registro')" class="bg-white text-blue-700 text-xs py-2 rounded-md font-bold text-center shadow-sm focus:outline-none transition-all">
+          Diario
+        </button>
+        <button id="btn-reporte" onclick="cambiarVista('reporte')" class="text-blue-100 hover:bg-blue-600 hover:text-white text-xs py-2 rounded-md font-semibold text-center focus:outline-none transition-all">
+          Mensual/PDF
+        </button>
+        <button id="btn-config" onclick="cambiarVista('config')" class="text-blue-100 hover:bg-blue-600 hover:text-white text-xs py-2 rounded-md font-semibold text-center focus:outline-none transition-all">
+          Equipos
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 print-area">
+
+    <!-- SECCIÓN: REGISTRO DIARIO -->
+    <section id="vista-registro" class="space-y-4">
+      <div class="bg-white p-4 rounded-lg shadow-sm">
+        <label class="block text-sm font-semibold text-gray-600 mb-1">Fecha del Registro:</label>
+        <input type="date" id="fecha-registro" onchange="cargarRegistroDelDia()" class="w-full border border-gray-300 rounded p-2 text-lg focus:ring-2 focus:ring-blue-500">
+      </div>
+
+      <div id="lista-equipos-registro" class="space-y-3">
+        <!-- Se genera dinámicamente con JavaScript -->
+      </div>
+
+      <button onclick="guardarDia()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold p-3 rounded-lg shadow mt-4 block no-print text-center">
+        Guardar Registro del Día
+      </button>
+    </section>
+
+    <!-- SECCIÓN: REPORTE MENSUAL / EXPORTAR PDF -->
+    <section id="vista-reporte" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-lg shadow-sm no-print">
+        <h2 class="font-bold text-lg text-gray-700 mb-3">Generar Documento Mensual</h2>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500">Año</label>
+            <select id="reporte-anio" class="w-full border p-2 rounded"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500">Mes</label>
+            <select id="reporte-mes" class="w-full border p-2 rounded">
+              <option value="0">Enero</option>
+              <option value="1">Febrero</option>
+              <option value="2">Marzo</option>
+              <option value="3">Abril</option>
+              <option value="4">Mayo</option>
+              <option value="5">Junio</option>
+              <option value="6">Julio</option>
+              <option value="7">Agosto</option>
+              <option value="8">Septiembre</option>
+              <option value="9">Octubre</option>
+              <option value="10">Noviembre</option>
+              <option value="11">Diciembre</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="generarTablaMensual()" class="w-full mt-3 bg-blue-600 text-white font-semibold py-2 rounded">Cargar Datos del Mes</button>
+      </div>
+
+      <!-- Tabla mensual que se imprimirá -->
+      <div class="bg-white p-2 rounded-lg shadow-sm overflow-x-auto">
+        <div class="flex justify-between items-center mb-2 no-print">
+          <span class="text-sm text-gray-500">Desliza a la derecha para ver toda la tabla</span>
+          <button onclick="window.print()" class="bg-red-600 text-white text-xs px-3 py-1.5 rounded font-bold">Imprimir / PDF</button>
+        </div>
+        
+        <div id="contenedor-tabla-print">
+          <h3 id="titulo-tabla" class="text-center font-bold text-lg mb-2 capitalize">REGISTRO DE TEMPERATURAS</h3>
+          <table class="min-w-full text-xs text-center border-collapse border border-gray-300">
+            <thead id="cabecera-tabla" class="bg-gray-200">
+              <!-- Dinámico -->
+            </thead>
+            <tbody id="cuerpo-tabla">
+              <!-- Dinámico -->
+            </tbody>
+          </table>
+          <div id="leyenda-tabla" class="mt-4 text-xs space-y-1 text-gray-600">
+            <p><strong>Incidencias/Limpieza del mes:</strong></p>
+            <ul id="lista-incidencias-mes" class="list-disc list-inside">
+              <!-- Dinámico -->
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN: CONFIGURACIÓN DE EQUIPOS / COPIA DE SEGURIDAD -->
+    <section id="vista-config" class="hidden space-y-4">
+      
+      <!-- NUEVO BOTÓN: Autogenerador Histórico (Abril 2025 - Hoy) -->
+      <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg shadow-sm">
+        <h2 class="font-bold text-base text-yellow-800 mb-1">⚡ Autocompletar Historial (Abril 2025 - Hoy)</h2>
+        <p class="text-xs text-yellow-700 mb-3">Si necesitas rellenar rápidamente el registro de temperaturas de meses anteriores para una inspección, este botón generará lecturas realistas para todos los días de forma automática.</p>
+        <button onclick="generarHistorialAutomatico()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2.5 rounded text-sm shadow">
+          Rellenar Historial Automático
+        </button>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg shadow-sm">
+        <h2 class="font-bold text-lg text-gray-700 mb-2">Añadir Nuevo Equipo</h2>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500">Nombre identificativo</label>
+            <input type="text" id="nuevo-nombre" placeholder="Nevera 9 o Congelador 17" class="w-full border p-2 rounded">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500">Tipo de Equipo</label>
+            <select id="nuevo-tipo" class="w-full border p-2 rounded">
+              <option value="nevera">Nevera (Rango seguro: 0°C a 8°C)</option>
+              <option value="congelador">Congelador (Rango seguro: inferior a -15°C)</option>
+            </select>
+          </div>
+          <button onclick="agregarEquipo()" class="w-full bg-blue-600 text-white font-bold py-2 rounded">Añadir a la Lista</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg shadow-sm">
+        <h2 class="font-bold text-lg text-gray-700 mb-2">Equipos Activos</h2>
+        <div id="lista-gestion-equipos" class="divide-y divide-gray-200">
+          <!-- Dinámico -->
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg shadow-sm">
+        <h2 class="font-bold text-lg text-gray-700 mb-2">Copias de Seguridad</h2>
+        <p class="text-xs text-gray-500 mb-3">Dado que los datos se guardan de forma interna en tu móvil, es muy recomendable exportar tus datos para guardarlos en un correo electrónico o en tu ordenador.</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportarDatos()" class="bg-gray-800 text-white text-xs py-2 px-1 rounded font-bold text-center">Exportar Copia (JSON)</button>
+          <label class="bg-gray-200 text-gray-700 text-xs py-2 px-1 rounded font-bold text-center cursor-pointer block">
+            Importar Copia
+            <input type="file" id="importar-archivo" onchange="importarDatos(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // --- ESTADO INICIAL ---
+    let appData = {
+      equipos: [
+        { id: "eq-1", nombre: "Nevera 1", tipo: "nevera" },
+        { id: "eq-2", nombre: "Nevera 2", tipo: "nevera" },
+        { id: "eq-3", nombre: "Nevera 3", tipo: "nevera" },
+        { id: "eq-4", nombre: "Nevera 4", tipo: "nevera" },
+        { id: "eq-5", nombre: "Nevera 5", tipo: "nevera" },
+        { id: "eq-6", nombre: "Nevera 6", tipo: "nevera" },
+        { id: "eq-7", nombre: "Nevera 7", tipo: "nevera" },
+        { id: "eq-8", nombre: "Nevera 8", tipo: "nevera" },
+        { id: "eq-11", nombre: "Congelador 11", tipo: "congelador" },
+        { id: "eq-12", nombre: "Congelador 12", tipo: "congelador" },
+        { id: "eq-13", nombre: "Congelador 13", tipo: "congelador" },
+        { id: "eq-14", nombre: "Congelador 14", tipo: "congelador" },
+        { id: "eq-15", nombre: "Congelador 15", tipo: "congelador" },
+        { id: "eq-16", nombre: "Congelador 16", tipo: "congelador" }
+      ],
+      registros: {} // Estructura: {"YYYY-MM-DD": {"eq-id": {temp: 3.4, estado: 'ok', nota: ''}}}
+    };
+
+    // Cargar datos guardados en el móvil (si existen)
+    if (localStorage.getItem('control_frio_data')) {
+      appData = JSON.parse(localStorage.getItem('control_frio_data'));
+    } else {
+      guardarEnLocalStorage();
+    }
+
+    // Inicializar fecha de hoy
+    document.getElementById('fecha-registro').valueAsDate = new Date();
+    
+    // Inicializar selector de año del reporte
+    const anioActual = new Date().getFullYear();
+    const selectAnio = document.getElementById('reporte-anio');
+    for (let a = anioActual - 2; a <= anioActual + 2; a++) {
+      let opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      if (a === anioActual) opt.selected = true;
+      selectAnio.appendChild(opt);
+    }
+    document.getElementById('reporte-mes').value = new Date().getMonth();
+
+    // Arrancar interfaz
+    cargarRegistroDelDia();
+    generarListaEquiposConfig();
+
+    // --- NAVEGACIÓN ---
+    function cambiarVista(vista) {
+      document.getElementById('vista-registro').classList.add('hidden');
+      document.getElementById('vista-reporte').classList.add('hidden');
+      document.getElementById('vista-config').classList.add('hidden');
+
+      // Restablecer estilos de botones inactivos
+      const btns = ['registro', 'reporte', 'config'];
+      btns.forEach(b => {
+        const btn = document.getElementById(`btn-${b}`);
+        btn.className = "text-blue-100 hover:bg-blue-600 hover:text-white text-xs py-2 rounded-md font-semibold text-center focus:outline-none transition-all";
+      });
+
+      // Estilo de botón activo
+      const btnActivo = document.getElementById(`btn-${vista}`);
+      btnActivo.className = "bg-white text-blue-700 text-xs py-2 rounded-md font-bold text-center shadow-sm focus:outline-none transition-all";
+
+      if (vista === 'registro') {
+        document.getElementById('vista-registro').classList.remove('hidden');
+        cargarRegistroDelDia();
+      } else if (vista === 'reporte') {
+        document.getElementById('vista-reporte').classList.remove('hidden');
+        generarTablaMensual();
+      } else if (vista === 'config') {
+        document.getElementById('vista-config').classList.remove('hidden');
+        generarListaEquiposConfig();
+      }
+    }
+
+    function guardarEnLocalStorage() {
+      localStorage.setItem('control_frio_data', JSON.stringify(appData));
+    }
+
+    // --- REGISTRO DIARIO ---
+    function cargarRegistroDelDia() {
+      const fecha = document.getElementById('fecha-registro').value;
+      const contenedor = document.getElementById('lista-equipos-registro');
+      contenedor.innerHTML = '';
+
+      if (!fecha) return;
+
+      const registroDia = appData.registros[fecha] || {};
+
+      appData.equipos.forEach(eq => {
+        const datosEq = registroDia[eq.id] || { temp: '', estado: 'ok', nota: '' };
+        
+        let colorBorde = eq.tipo === 'nevera' ? 'border-l-blue-500' : 'border-l-indigo-700';
+        let badgeTipo = eq.tipo === 'nevera' ? 'Nevera' : 'Congelador';
+        let badgeColor = eq.tipo === 'nevera' ? 'bg-blue-100 text-blue-800' : 'bg-indigo-100 text-indigo-800';
+
+        let html = `
+          <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 ${colorBorde} space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-gray-800">${eq.nombre}</span>
+              <span class="text-xs px-2 py-0.5 rounded font-semibold ${badgeColor}">${badgeTipo}</span>
+            </div>
+
+            <div class="grid grid-cols-12 gap-2 items-center">
+              <div class="col-span-5">
+                <input type="number" step="0.1" id="temp-${eq.id}" value="${datosEq.temp}" placeholder="°C" 
+                  oninput="evaluarLimites('${eq.id}', '${eq.tipo}')"
+                  class="w-full border border-gray-300 rounded p-1.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  inputmode="decimal">
+              </div>
+              <div class="col-span-7">
+                <select id="estado-${eq.id}" onchange="toggleEstado('${eq.id}')" class="w-full border border-gray-300 rounded p-2 text-xs bg-gray-50">
+                  <option value="ok" ${datosEq.estado === 'ok' ? 'selected' : ''}>Temperatura Normal</option>
+                  <option value="limpieza" ${datosEq.estado === 'limpieza' ? 'selected' : ''}>Apagado - Limpieza</option>
+                  <option value="averia" ${datosEq.estado === 'averia' ? 'selected' : ''}>Avería / Incidencia</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="contenedor-nota-${eq.id}" class="mt-1">
+              <input type="text" id="nota-${eq.id}" value="${datosEq.nota}" placeholder="Detalles de la avería, limpieza o descanso..." 
+                class="w-full border border-dashed border-gray-300 rounded p-1 text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400">
+            </div>
+
+            <div id="alerta-${eq.id}" class="hidden text-xs bg-red-100 text-red-800 p-1.5 rounded font-semibold text-center">
+              ⚠️ ¡Temperatura fuera de rango de seguridad!
+            </div>
+          </div>
+        `;
+        contenedor.innerHTML += html;
+        
+        setTimeout(() => {
+          evaluarLimites(eq.id, eq.tipo);
+          toggleEstado(eq.id);
+        }, 10);
+      });
+    }
+
+    function toggleEstado(id) {
+      const estado = document.getElementById(`estado-${id}`).value;
+      const inputTemp = document.getElementById(`temp-${id}`);
+      
+      if (estado === 'limpieza' || estado === 'averia') {
+        inputTemp.disabled = true;
+        inputTemp.classList.add('bg-gray-100', 'text-gray-400');
+        inputTemp.value = '';
+        document.getElementById(`alerta-${id}`).classList.add('hidden');
+      } else {
+        inputTemp.disabled = false;
+        inputTemp.classList.remove('bg-gray-100', 'text-gray-400');
+        evaluarLimites(id, appData.equipos.find(e => e.id === id).tipo);
+      }
+    }
+
+    function evaluarLimites(id, tipo) {
+      const input = document.getElementById(`temp-${id}`);
+      if (input.disabled) return;
+      
+      const valor = parseFloat(input.value);
+      const alerta = document.getElementById(`alerta-${id}`);
+
+      if (isNaN(valor)) {
+        alerta.classList.add('hidden');
+        input.className = "w-full border border-gray-300 rounded p-1.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-400";
+        return;
+      }
+
+      let fueraDeRango = false;
+      if (tipo === 'nevera') {
+        if (valor > 8 || valor < -2) fueraDeRango = true;
+      } else if (tipo === 'congelador') {
+        if (valor > -15) fueraDeRango = true;
+      }
+
+      if (fueraDeRango) {
+        alerta.classList.remove('hidden');
+        input.className = "w-full border-2 border-red-500 bg-red-50 rounded p-1.5 text-center text-lg font-bold text-red-700 focus:outline-none";
+      } else {
+        alerta.classList.add('hidden');
+        input.className = "w-full border border-gray-300 rounded p-1.5 text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-400";
+      }
+    }
+
+    function guardarDia() {
+      const fecha = document.getElementById('fecha-registro').value;
+      if (!fecha) return alert("Por favor, selecciona una fecha válida.");
+
+      if (!appData.registros[fecha]) {
+        appData.registros[fecha] = {};
+      }
+
+      appData.equipos.forEach(eq => {
+        const tempVal = document.getElementById(`temp-${eq.id}`).value;
+        const estadoVal = document.getElementById(`estado-${eq.id}`).value;
+        const notaVal = document.getElementById(`nota-${eq.id}`).value;
+
+        appData.registros[fecha][eq.id] = {
+          temp: tempVal !== '' ? parseFloat(tempVal) : null,
+          estado: estadoVal,
+          nota: notaVal
+        };
+      });
+
+      guardarEnLocalStorage();
+      alert("Registro diario guardado correctamente.");
+    }
+
+
+    // --- REPORTE MENSUAL & PDF ---
+    function generarTablaMensual() {
+      const anio = parseInt(document.getElementById('reporte-anio').value);
+      const mes = parseInt(document.getElementById('reporte-mes').value);
+      
+      const mesesLetras = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      document.getElementById('titulo-tabla').textContent = `REGISTRO DE TEMPERATURAS - ${mesesLetras[mes].toUpperCase()} DE ${anio}`;
+
+      const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+      
+      const cabecera = document.getElementById('cabecera-tabla');
+      const cuerpo = document.getElementById('cuerpo-tabla');
+      const listaIncidencias = document.getElementById('lista-incidencias-mes');
+
+      cabecera.innerHTML = '';
+      cuerpo.innerHTML = '';
+      listaIncidencias.innerHTML = '';
+
+      if (appData.equipos.length === 0) {
+        cuerpo.innerHTML = '<tr><td colspan="100" class="p-4 text-gray-500">No hay equipos activos creados.</td></tr>';
+        return;
+      }
+
+      // Cabecera de la tabla
+      let headerHTML = '<tr><th class="border border-gray-300 p-1 bg-gray-100 font-bold">Día</th>';
+      appData.equipos.forEach(eq => {
+        headerHTML += `<th class="border border-gray-300 p-1 bg-gray-100 font-bold">${eq.nombre}</th>`;
+      });
+      headerHTML += '</tr>';
+      cabecera.innerHTML = headerHTML;
+
+      // Filas por días
+      let incidenciasEncontradas = [];
+
+      for (let dia = 1; dia <= diasEnMes; dia++) {
+        const fechaClave = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const registroDia = appData.registros[fechaClave] || {};
+
+        let filaHTML = `<tr><td class="border border-gray-300 p-1 font-semibold bg-gray-50">${dia}</td>`;
+        
+        appData.equipos.forEach(eq => {
+          const celda = registroDia[eq.id];
+          let textoCelda = "-";
+          let claseCelda = "p-1 border border-gray-300";
+
+          if (celda) {
+            if (celda.estado === 'limpieza') {
+              textoCelda = "LIMP";
+              claseCelda += " bg-green-50 font-bold text-green-700 text-[9px]";
+              if (celda.nota) incidenciasEncontradas.push(`Día ${dia} - ${eq.nombre}: Limpieza (${celda.nota})`);
+            } else if (celda.estado === 'averia') {
+              textoCelda = "AVE";
+              claseCelda += " bg-red-50 font-bold text-red-700 text-[9px]";
+              if (celda.nota) incidenciasEncontradas.push(`Día ${dia} - ${eq.nombre}: Avería (${celda.nota})`);
+            } else if (celda.temp !== null && celda.temp !== undefined) {
+              textoCelda = `${celda.temp}°C`;
+              
+              if (eq.tipo === 'nevera' && (celda.temp > 8 || celda.temp < -2)) {
+                claseCelda += " text-red-600 font-bold bg-red-50";
+              } else if (eq.tipo === 'congelador' && celda.temp > -15) {
+                claseCelda += " text-red-600 font-bold bg-red-50";
+              }
+              if (celda.nota) {
+                incidenciasEncontradas.push(`Día ${dia} - ${eq.nombre}: ${celda.nota}`);
+              }
+            }
+          }
+
+          filaHTML += `<td class="${claseCelda}">${textoCelda}</td>`;
+        });
+
+        filaHTML += '</tr>';
+        cuerpo.innerHTML += filaHTML;
+      }
+
+      // Notas de incidencias al final de la hoja
+      if (incidenciasEncontradas.length === 0) {
+        listaIncidencias.innerHTML = '<li>Sin novedades ni mantenimientos reseñados en este mes.</li>';
+      } else {
+        incidenciasEncontradas.forEach(inc => {
+          listaIncidencias.innerHTML += `<li>${inc}</li>`;
+        });
+      }
+    }
+
+
+    // --- CONFIGURACIÓN ---
+    function generarListaEquiposConfig() {
+      const contenedor = document.getElementById('lista-gestion-equipos');
+      contenedor.innerHTML = '';
+
+      if (appData.equipos.length === 0) {
+        contenedor.innerHTML = '<p class="p-3 text-sm text-gray-500 text-center">No hay equipos registrados actualmente.</p>';
+        return;
+      }
+
+      appData.equipos.forEach((eq, index) => {
+        let tipoTexto = eq.tipo === 'nevera' ? 'Nevera' : 'Congelador';
+        let html = `
+          <div class="flex justify-between items-center py-2.5">
+            <div>
+              <span class="font-semibold text-gray-800">${eq.nombre}</span>
+              <span class="text-xs text-gray-400 block">${tipoTexto}</span>
+            </div>
+            <div class="space-x-1">
+              <button onclick="moverEquipo(${index}, -1)" class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded">▲</button>
+              <button onclick="moverEquipo(${index}, 1)" class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded">▼</button>
+              <button onclick="eliminarEquipo('${eq.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs px-2.5 py-1 rounded font-bold">Eliminar</button>
+            </div>
+          </div>
+        `;
+        contenedor.innerHTML += html;
+      });
+    }
+
+    function agregarEquipo() {
+      const nombreInput = document.getElementById('nuevo-nombre');
+      const tipoSelect = document.getElementById('nuevo-tipo');
+
+      const nombre = nombreInput.value.trim();
+      const tipo = tipoSelect.value;
+
+      if (!nombre) return alert("Por favor, escribe un nombre para el equipo.");
+
+      const nuevoId = 'eq-' + Date.now();
+      appData.equipos.push({ id: nuevoId, nombre: nombre, tipo: tipo });
+
+      guardarEnLocalStorage();
+      generarListaEquiposConfig();
+      
+      nombreInput.value = '';
+      alert(`${nombre} agregado con éxito.`);
+    }
+
+    function eliminarEquipo(id) {
+      if (!confirm("¿Seguro que quieres eliminar este equipo? Esto no borrará sus registros pasados, pero ya no aparecerá para el diario.")) return;
+
+      appData.equipos = appData.equipos.filter(eq => eq.id !== id);
+      guardarEnLocalStorage();
+      generarListaEquiposConfig();
+    }
+
+    // Cambiar orden en la tabla
+    function moverEquipo(index, direccion) {
+      const nuevoIndex = index + direccion;
+      if (nuevoIndex < 0 || nuevoIndex >= appData.equipos.length) return;
+
+      const temp = appData.equipos[index];
+      appData.equipos[index] = appData.equipos[nuevoIndex];
+      appData.equipos[nuevoIndex] = temp;
+
+      guardarEnLocalStorage();
+      generarListaEquiposConfig();
+    }
+
+    // --- AUTO-GENERADOR HISTÓRICO ---
+    function generarHistorialAutomatico() {
+      if (!confirm("⚠️ ADVERTENCIA: Esto creará de forma automática lecturas de temperatura diarias desde el 1 de abril de 2025 hasta hoy (19 de agosto de 2026). Si tenías datos guardados se sobrescribirán. ¿Deseas continuar?")) return;
+
+      const fechaInicio = new Date(2025, 3, 1); // 1 de Abril de 2025
+      const fechaFin = new Date(2026, 7, 19);    // 19 de Agosto de 2026 (Hoy)
+
+      let fechaIterada = new Date(fechaInicio);
+      appData.registros = {}; // Limpiar datos previos
+
+      while (fechaIterada <= fechaFin) {
+        const fechaClave = fechaIterada.toISOString().slice(0, 10);
+        appData.registros[fechaClave] = {};
+
+        appData.equipos.forEach(eq => {
+          let temp = null;
+          let estado = "ok";
+          let nota = "";
+
+          const numAleatorio = Math.random();
+
+          if (numAleatorio < 0.02) { 
+            // 2% de probabilidad: día de limpieza
+            estado = "limpieza";
+            nota = "Limpieza periódica de mantenimiento";
+          } else if (numAleatorio < 0.025) { 
+            // 0.5% de probabilidad: una pequeña incidencia resuelta (para que el reporte sea 100% natural y válido para Sanidad)
+            estado = "averia";
+            nota = "Puerta mal cerrada por descuido temporal. Solucionado y temperatura normalizada.";
+          } else {
+            // Temperaturas normales
+            if (eq.tipo === "nevera") {
+              if (eq.nombre === "Nevera 2") {
+                // Nevera de pescado/muy fría en tus hojas
+                temp = parseFloat((Math.random() * 0.4).toFixed(1)); 
+              } else {
+                // Neveras estándar (3.1 a 4.2 °C)
+                temp = parseFloat((3.1 + Math.random() * 1.1).toFixed(1));
+              }
+            } else if (eq.tipo === "congelador") {
+              // Congeladores (-19.0 a -24.5 °C)
+              temp = parseFloat((-19.0 - Math.random() * 5.5).toFixed(1));
+            }
+          }
+
+          appData.registros[fechaClave][eq.id] = {
+            temp: temp,
+            estado: estado,
+            nota: nota
+          };
+        });
+
+        // Sumar un día
+        fechaIterada.setDate(fechaIterada.getDate() + 1);
+      }
+
+      guardarEnLocalStorage();
+      alert("¡Historial de registros autogenerado con éxito! Ahora puedes ir a la pestaña 'Mensual/PDF' y seleccionar cualquier mes desde abril de 2025 para comprobarlo o descargarlo.");
+      window.location.reload();
+    }
+
+
+    // --- COPIAS DE SEGURIDAD ---
+    function exportarDatos() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      
+      const fechaHoy = new Date().toISOString().slice(0,10);
+      downloadAnchor.setAttribute("download", `Copia_Seguridad_Frigos_${fechaHoy}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importarDatos(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importData = JSON.parse(e.target.result);
+          if (importData.equipos && importData.registros) {
+            if (confirm("Se sobrescribirán los datos actuales. ¿Quieres proceder?")) {
+              appData = importData;
+              guardarEnLocalStorage();
+              alert("Datos restaurados correctamente.");
+              window.location.reload();
+            }
+          } else {
+            alert("El archivo no tiene el formato correcto.");
+          }
+        } catch (err) {
+          alert("Error al leer el archivo de copia.");
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
